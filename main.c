@@ -17,6 +17,20 @@ typedef struct {
     int color;      //藍棋是1紅棋是-1
 } board_property;
 
+typedef struct {        //利用儲存棋盤的變動來儲存檔案
+    int xi;
+    int yi; 
+    int xo;
+    int yo;
+    int level_up;       //是否升變
+    int reveive;        //是否打入
+
+
+    data_save *next;    //接下一個
+
+}data_save;
+
+
 board_property empty = {
     .name = CHESSKUO(空),
     .color = 0
@@ -47,6 +61,12 @@ int LevelUpCheck(int xo, int yo);
 void NicePic();
 int LevelUpAsk();
 void LevelDown(int x, int y);
+int ReviveAsk();
+int ReviveCheck(int position, int xo, int yo);
+void ReviveMove(int *red_or_blue,int xi, int yi,int xo, int yo);
+
+
+
 
 int main()
 {
@@ -57,12 +77,41 @@ int main()
 
         BoardPrint();
         (red_or_blue == 1) ? printf("現在是藍方喔~\n") : printf("現在是紅方喔~\n");
-        ReceiveInput();
-        MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');      //把使用者輸入的座標轉換成int 丟進去
         
-        if(chess_current_row[0] == 'w'){
-            break;
+        if(red_or_blue == 1){
+            if(blue_catch[0].name != CHESSKUO(空)){
+                if(ReviveAsk() == 1){
+                    ReceiveInput();
+                    ReviveMove(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
+
+                }else{
+                    ReceiveInput();
+                    MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
+                }
+            }else{
+                ReceiveInput();
+                MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
+            }
+                
+
+        }else if(red_or_blue == -1){
+            if(red_catch[0].name != CHESSKUO(空)){
+                if(ReviveAsk() == 1){
+                    ReceiveInput();
+                    ReviveMove(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
+                }else{
+                    ReceiveInput();
+                    MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
+                }
+            }else{
+                ReceiveInput();
+                MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
+            }
         }
+
+              //把使用者輸入的座標轉換成int 丟進去
+        
+        
 
         
     }
@@ -182,17 +231,28 @@ void BoardPrint()
 
     printf("⌓‿⌓ と⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓\n");
     int i, j =0;
+
+    for(i = SIZE - 1;i >= 0;i--) {          //印出數字
+        printf("%s",CHESSKUO(|));
+        printf("%s", chinese_numbers[i]);
+        
+    }
+    printf("\n");
+
     for(j = 0;j <SIZE;j++) {        //棋盤橫線
         printf("———");
     }
     printf("\n|");  
+    
     for(i = 0;i < CATCH_SIZE;i++) {     //印出紅方吃的棋子
         printf("%s", red_catch[i].name);
-         if(i % SIZE == SIZE -1 && i == CATCH_SIZE - 1) {
+         if(i % SIZE == SIZE -1 && i == CATCH_SIZE - 1) {   //印到第二行
             printf("|");  
+            printf("%s", chinese_numbers[1]);
             printf("\n");
-         }else if(i % SIZE == SIZE -1){
+         }else if(i % SIZE == SIZE -1){     //印下一行
             printf("|");  
+            printf("%s", chinese_numbers[0]);
             printf("\n");
             printf("|");            
          }else{
@@ -207,7 +267,7 @@ void BoardPrint()
     }
     printf("\n\n");
 
-    for(i = SIZE - 1;i >= 0;i--) {
+    for(i = SIZE - 1;i >= 0;i--) {          //印出數字
         printf("%s",CHESSKUO(|));
         printf("%s", chinese_numbers[i]);
         
@@ -244,9 +304,11 @@ void BoardPrint()
         printf("%s", blue_catch[i].name);
         if(i % SIZE == SIZE -1 && i == CATCH_SIZE - 1) {
            printf("|");  
+           printf("%s", chinese_numbers[1]);
            printf("\n");
         }else if(i % SIZE == SIZE -1){
            printf("|");  
+           printf("%s", chinese_numbers[0]);
            printf("\n");
            printf("|");            
         }else{
@@ -261,21 +323,16 @@ void BoardPrint()
         printf("———");
     }
     printf("\n");
-}
 
-//scanf("%s", red_catch[red_chatch_num++]);
-
-/*void ReceiveInputTest()
-{
-    char input_order[20];
-    scanf("%s", input_order);
-    if(input_order[0] == 'G')
-        printf("溪小媽\n");
-    printf("input_order is : %s\n", input_order);
-
+    for(i = SIZE - 1;i >= 0;i--) {          //印出數字
+        printf("%s",CHESSKUO(|));
+        printf("%s", chinese_numbers[i]);
+        
+    }
+    printf("\n");
 
 }
-*/
+
 
 //接收使用者輸入
 void ReceiveInput()         
@@ -843,7 +900,7 @@ void EatChess(int xi, int yi,int xo, int yo)
         board[xo][yo] = board[xi][yi];
         board[xi][yi] = empty;
        
-    }else {
+    }else {                                         //正常來說不會到這行
         printf("吃子還會ㄘ錯是怎樣 QQ\n");
     }
 }
@@ -930,7 +987,7 @@ int LevelUpAsk()
         return 0;
     }else {
         printf("輸入錯誤請重新輸入\n");
-        LevelUpAsk();
+        return LevelUpAsk();
         
     }
 
@@ -938,40 +995,176 @@ int LevelUpAsk()
 
 void LevelDown(int x, int y)
 {
-    if(board[x][y].name == CHESSGOOD(杏)){
-        board[x][y].name = CHESSGOOD(相);
-    }else if(board[x][y].name == CHESSGOOD(圭)){
-        board[x][y].name = CHESSGOOD(桂);
-    }else if(board[x][y].name == CHESSGOOD(全)){
-        board[x][y].name = CHESSGOOD(銀);
-    }else if(board[x][y].name == CHESSGOOD(と)){
-        board[x][y].name = CHESSGOOD(步);
-    }else if(board[x][y].name == CHESSGOOD(龍)){
-        board[x][y].name = CHESSGOOD(飛);
-    }else if(board[x][y].name == CHESSGOOD(馬)){
-        board[x][y].name = CHESSGOOD(角);
-    }else if(board[x][y].name == CHESSBAD(杏)){
-        board[x][y].name = CHESSBAD(相);
-    }else if(board[x][y].name == CHESSBAD(圭)){
+
+    //換顏色(要先換顏色再降級，不然降級玩還會換顏色)
+    if(board[x][y].name == CHESSGOOD(香)){
+        board[x][y].name = CHESSBAD(香);
+    }else if(board[x][y].name == CHESSGOOD(桂)){
         board[x][y].name = CHESSBAD(桂);
-    }else if(board[x][y].name == CHESSBAD(全)){
+    }else if(board[x][y].name == CHESSGOOD(銀)){
         board[x][y].name = CHESSBAD(銀);
-    }else if(board[x][y].name == CHESSBAD(と)){
+    }else if(board[x][y].name == CHESSGOOD(步)){
         board[x][y].name = CHESSBAD(步);
-    }else if(board[x][y].name == CHESSBAD(龍)){
+    }else if(board[x][y].name == CHESSGOOD(飛)){
         board[x][y].name = CHESSBAD(飛);
-    }else if(board[x][y].name == CHESSBAD(馬)){
+    }else if(board[x][y].name == CHESSGOOD(角)){
         board[x][y].name = CHESSBAD(角);
+    }else if(board[x][y].name == CHESSBAD(香)){
+        board[x][y].name = CHESSGOOD(香);
+    }else if(board[x][y].name == CHESSBAD(桂)){
+        board[x][y].name = CHESSGOOD(桂);
+    }else if(board[x][y].name == CHESSBAD(銀)){
+        board[x][y].name = CHESSGOOD(銀);
+    }else if(board[x][y].name == CHESSBAD(步)){
+        board[x][y].name = CHESSGOOD(步);
+    }else if(board[x][y].name == CHESSBAD(飛)){
+        board[x][y].name = CHESSGOOD(飛);
+    }else if(board[x][y].name == CHESSBAD(角)){
+        board[x][y].name = CHESSGOOD(角);
     }
+
+    //降級
+    if(board[x][y].name == CHESSGOOD(杏)){
+        board[x][y].name = CHESSBAD(香);
+    }else if(board[x][y].name == CHESSGOOD(圭)){
+        board[x][y].name = CHESSBAD(桂);
+    }else if(board[x][y].name == CHESSGOOD(全)){
+        board[x][y].name = CHESSBAD(銀);
+    }else if(board[x][y].name == CHESSGOOD(と)){
+        board[x][y].name = CHESSBAD(步);
+    }else if(board[x][y].name == CHESSGOOD(龍)){
+        board[x][y].name = CHESSBAD(飛);
+    }else if(board[x][y].name == CHESSGOOD(馬)){
+        board[x][y].name = CHESSBAD(角);
+    }else if(board[x][y].name == CHESSBAD(杏)){
+        board[x][y].name = CHESSGOOD(香);
+    }else if(board[x][y].name == CHESSBAD(圭)){
+        board[x][y].name = CHESSGOOD(桂);
+    }else if(board[x][y].name == CHESSBAD(全)){
+        board[x][y].name = CHESSGOOD(銀);
+    }else if(board[x][y].name == CHESSBAD(と)){
+        board[x][y].name = CHESSGOOD(步);
+    }else if(board[x][y].name == CHESSBAD(龍)){
+        board[x][y].name = CHESSGOOD(飛);
+    }else if(board[x][y].name == CHESSBAD(馬)){
+        board[x][y].name = CHESSGOOD(角);
+    }
+
     
-
-
 
 }
 
 
+int ReviveAsk()
+{
+    char input[3];
+    printf("想要拿取吃過的棋子嗎?[y/n]: ");
+    scanf(" %c", input);
+    if(input[0] == 'y'){    //回傳一表示要
+        return 1;
+    }else if( input[0] == 'n') {        //回傳0表示不要
+        return 0;
+    }else {
+        printf("輸入錯誤請重新輸入\n");
+        return ReviveAsk();
+        
+    }
+
+}
+
+//有沒有符合打入規則
+int ReviveCheck(int position, int xo, int yo)       //檢查拿子合不合裡
+{
+    if(board[xo][yo].name != CHESSKUO(空)){
+        return 0;
+    }else if(board[xo][yo].name == CHESSGOOD(香)){  //藍_香不可以放到最後
+        if(xo == 0){                                //不可以放到最後前面一排
+            return 0;
+        }else{
+            return 1;
+        }
+    }else if(board[xo][yo].name ==CHESSBAD(香)){
+        if(xo == 8){
+            return 0;
+        }else{
+            return 1;
+        }
+    }else if(board[xo][yo].name ==CHESSGOOD(桂)){
+        if(xo == 0 || xo == 1){                 //桂不可放頂二段
+            return 0;
+        }else{
+            return 1;
+        }
+    }else if(board[xo][yo].name ==CHESSBAD(桂)){
+        if(xo == 8 || xo == 7){
+            return 0;
+        }else{
+            return 1;
+        }
+    }else if(board[xo][yo].name ==CHESSGOOD(步)){
+        for(int i = 0;i < 8;i++){
+            if(board[i][yo].name == CHESSGOOD(步)){     //那一列不能有步
+                return 0;
+            }
+        }
+        if(board[xo + 1][yo].name == CHESSBAD(王)){      //步不可瞬殺王
+            return 0;
+        }
+        return 1;
+    }else if(board[xo][yo].name ==CHESSBAD(步)){
+        for(int i = 0;i < 8;i++){
+            if(board[i][yo].name == CHESSBAD(步)){     //那一列不能有步
+                return 0;
+            }
+        }
+        if(board[xo + 1][yo].name == CHESSGOOD(玉)){      //步不可瞬殺玉
+            return 0;
+        }
+        return 1;
+    }
+    
+    
+}
+
+//打入移動用函式
+void ReviveMove(int *red_or_blue,int xi, int yi,int xo, int yo)
+{
+    //先座標轉換成陣列的座標
+    xi--;
+    xo--;
+    yi = (yi - 9) * (-1) ;
+    yo = (yo - 9) * (-1) ;
+
+    int position = (xi) * 9 + yi;               //換算成一維正列的數字，給blue_catch和red_catch用
+    
+    if(*red_or_blue == 1){       //藍
+        if(( ReviveCheck(position, xo, yo) == 1 && position <= CATCH_SIZE) && blue_catch[position].name != CHESSKUO(空)){        //符合規則和不等於空和不超出位置就換
+            blue_catch[position].color *= -1;
+            board[xo][yo] = blue_catch[position];
+            blue_catch[position] = empty;
+            
+            for(int i = position;blue_catch[i].name == CHESSKUO(空) && i < CATCH_SIZE - 1;i++){
+                blue_catch[i] = blue_catch[i + 1];
+            }
+            *red_or_blue *= -1;
+        }else{
+            printf("不符合規則喔\n");
+        }
+    }else if(*red_or_blue == -1){
+        if(( ReviveCheck(position, xo, yo) == 1 && position <= CATCH_SIZE) && red_catch[position].name != CHESSKUO(空)){        //符合規則就換
+            red_catch[position].color *= -1;
+            board[xo][yo] = red_catch[position];
+            red_catch[position] = empty;
+            
+            for(int i = position;red_catch[i].name == CHESSKUO(空) && i < CATCH_SIZE - 1;i++){
+                red_catch[i] = red_catch[i + 1];
+            }
+            *red_or_blue *= -1;
+        }else{
+            printf("不符合規則喔\n");
+        }
+    }
 
 
 
-
-
+}
