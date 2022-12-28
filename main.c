@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <ev.h>
 
 
 #define SIZE 9              //鄭烈的大小， 可隨時更改
@@ -17,25 +17,8 @@ typedef struct {
     int color;      //藍棋是1紅棋是-1
 } board_property;
 
-struct data_save{        //利用儲存棋盤的變動來儲存檔案
 
-    //DATA
-    int xi;             //棋子在棋盤上的座標
-    int yi; 
-    int xo;
-    int yo;
-    int level_up;       //是否升變
-    int revive;         //是否打入
-    int red_or_blue;    //紅方藍方判斷
-    int eat;            //是否有吃子
-    int position;       //紀錄是在吃子欄位的地方第幾個拿的
-    int eat_level_down; //被吃的子是否有升過級
 
-    //左右指標
-    struct data_save *left, *right;    //接下一個
-
-};
-typedef struct data_save data_save;
 
 struct board_save{        //直接儲存棋盤來儲存檔案
     //把棋盤和兩方吃子的地方存起來
@@ -101,28 +84,135 @@ board_save *CreateSavedBoard(board_save *list_of_board);
 void UpDateSavedBoard(board_save *list, int red_or_blue);
 int RegretAsk();
 board_save *UpDateBoard(board_save *list_of_board, int *red_or_blue);
+//讀檔案
+void SaveOneBoard(board_save *list_of_board, FILE * cfPtr);
+void GetOneBoard(board_save *list_of_board, FILE * cfPtr);
+int ReadFileAsk();
+board_save *ReadOldFile(board_save *list_of_board, FILE * cfPtr, int *red_or_blue);
+char TurnToSymbol(board_property chess);
+board_property TurnToChar(char chess);
+
 
 //以下資料儲存被上方取代
+//data_save沒用了，已經被我拋棄
+struct data_save{        //利用儲存棋盤的變動來儲存檔案
 
+    //DATA
+    int xi;             //棋子在棋盤上的座標
+    int yi; 
+    int xo;
+    int yo;
+    int level_up;       //是否升變
+    int revive;         //是否打入
+    int red_or_blue;    //紅方藍方判斷
+    int eat;            //是否有吃子
+    int position;       //紀錄是在吃子欄位的地方第幾個拿的
+    int eat_level_down; //被吃的子是否有升過級
+
+    //左右指標
+    struct data_save *left, *right;    //接下一個
+
+};
+typedef struct data_save data_save;
 data_save *Add(data_save *list, int xi, int yi, int xo, int yo, int level_up, int revive, int red_or_blue, int eat, int position, int eat_level_down);
 int PreviousMove(data_save *list);
 
 
 
 
-int main()
+int main(void)
 {
+    //檔案處理的部分
     
 
+    // FILE *cfPtr = fopen("new_game_file.txt","a+");
+    FILE *cfPtr = fopen("old_game_file.txt","r+");
+
+    if((cfPtr ) == NULL)
+    {
+        printf("檔案開不了阿哭哭我ˋ真的累了\n");
+    }
     int red_or_blue = 1;           //-1代表換紅方1代表換藍方
     int initial_or_not = 1;         //判斷是否為一開始
+    
+    
     BoardReset();
-    LoadingLine();
+    
+    //LoadingLine();
+    board_save *list_of_old_board;       //儲存棋盤的list       記得不需要list_of_board = NULL; !!
+    list_of_old_board = (board_save*)malloc(sizeof(board_save));        //初始化
+    //ReadOldFile(list_of_old_board, cfPtr, &red_or_blue);    //剛開始來問讀檔案
+    
+
     board_save *list_of_board;       //儲存棋盤的list       記得不需要list_of_board = NULL; !!
+    list_of_board = (board_save*)malloc(sizeof(board_save));        //初始化
+    char input[3];
     
+    if(ReadFileAsk() == 1){
+        //開始把舊檔案下載
+        board_save *tmp;
+        tmp = (board_save*)malloc(sizeof(board_save));
+        
+        
+        while(input[0] != 'p'){
+            printf("輸入 ‘f’ 移動下一手，輸入 ‘b’ 退回上一手，輸入‘p’開始玩 : ");
+            scanf(" %c", input);
+            if(input[0] == 'f'){
+                if(list_of_board->right != NULL){
+                    list_of_board = list_of_board->right;
+                    BoardPrint();
+                }else{
+                    char ch1[30];
+                    char ch2[30];
+                    char ch3[100];
+                    for(int i = 0; i < CATCH_SIZE;i++){
+                        fscanf(cfPtr, "%c ", &ch1[i]);
+                        red_catch[i] = TurnToChar(ch1[i]);
+                        list_of_board->saved_red_catch[i] = TurnToChar(ch1[i]);
+
+                        fscanf(cfPtr,"%c ", &ch2[i]);
+                        blue_catch[i] = TurnToChar(ch2[i]);
+                    }
+                    
+                    for(int i = 0; i < SIZE;i++){
+                        for(int j = 0; j < SIZE;j++){
+                            fscanf(cfPtr,"%c ", &ch3[i*10 + j]);
+                            board[i][j] = TurnToChar( ch3[i*10+j]);
+                            list_of_board->saved_board[i][j] =  TurnToChar( ch3[i*10+j]);
+                        }
+                    }
+                    fscanf(cfPtr,"%d \n", &list_of_board->saved_red_or_blue);
+                    list_of_board = CreateSavedBoard(list_of_board);    //新增
+                    UpDateSavedBoard(list_of_board,list_of_board->saved_red_or_blue);
+                    BoardPrint();
+                    printf("red_or_blue = %d", red_or_blue);
+                }
+
+                
+            }else if(input[0] == 'b'){
+               
+                if(list_of_board->left == NULL){
+                    BoardPrint();
+                    printf("不能再後退了\n");
+                }else{
+                    list_of_board =  UpDateBoard(list_of_board, &red_or_blue);
+                    BoardPrint();
+                }
+                
+
+                
+                printf("red_or_blue = %d", red_or_blue);
+            }else{
+                printf("輸入錯誤\n");
+            }
+        }
+    }
     UpDateSavedBoard(list_of_board, red_or_blue);       //先儲存一個剛開始的棋盤
-    list_of_board->left = NULL;
     
+    
+    // SaveOneBoard(list_of_board, cfPtr);
+    
+    //list_of_board->left = NULL;
     //Game start!!
     while(win_condition == 0){
         BoardPrint();
@@ -142,19 +232,35 @@ int main()
         
         
         
+        // ReceiveInput();
+        //按下w退出
+        if(chess_current_row[0] == 'w'){
+            
+            //GetOneBoard(list_of_board, cfPtr);
+            //如果放到函式也會有一點點出錯，懷疑是模擬機的效能到極限了
+            
+            
+            break;
+        }
+
+        
+
         
         if(red_or_blue == 1){
-            if(blue_catch[0].name != CHESSKUO(空)){
+            if(blue_catch[0].name != CHESSKUO(空)){     //藍色吃子有空的
                 if(ReviveAsk() == 1){
                     ReceiveInput();
+                    if(chess_current_row[0] == 'w') {break;}
                     ReviveMove(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
 
                 }else{
                     ReceiveInput();
+                    if(chess_current_row[0] == 'w') {break;}
                     MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
                 }
             }else{
                 ReceiveInput();
+                if(chess_current_row[0] == 'w') {break;}
                 MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
             }
                 
@@ -163,13 +269,16 @@ int main()
             if(red_catch[0].name != CHESSKUO(空)){
                 if(ReviveAsk() == 1){
                     ReceiveInput();
+                    if(chess_current_row[0] == 'w') {break;}
                     ReviveMove(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
                 }else{
                     ReceiveInput();
+                    if(chess_current_row[0] == 'w') {break;}
                     MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
                 }
             }else{
                 ReceiveInput();
+                if(chess_current_row[0] == 'w') {break;}
                 MoveChess(&red_or_blue,chess_current_row[0] - '0', chess_current_column[0] - '0', chess_next_row[0] - '0', chess_next_column[0] - '0');
             }
             
@@ -178,11 +287,12 @@ int main()
         //判斷是否需要新加一個linklist(這次是否為正確輸入)
         if(reenter_or_not == 0){
             list_of_board = CreateSavedBoard(list_of_board);    //製造新的一格儲存棋盤的linklist
+            UpDateSavedBoard(list_of_board, red_or_blue * (-1));       //換下一人就儲存棋盤(這裡red_or_blue已經改了，所以要乘-1才是這次的值)
+            // SaveOneBoard(list_of_board, cfPtr);                           //更新完棋盤就存檔
         }else{
             reenter_or_not = 0;     //判斷完把reenter_or_not歸零重新作為判斷依據
         }
         
-        UpDateSavedBoard(list_of_board, red_or_blue * (-1));       //換下一人就儲存棋盤(這裡red_or_blue已經改了，所以要乘-1才是這次的值)
         
     }
 
@@ -198,6 +308,8 @@ int main()
     //印出勝利圖片
     NicePic();
 
+
+    fclose( cfPtr );
     return 0;
 }
 
@@ -588,6 +700,9 @@ void MoveChess(int *red_or_blue,int xi, int yi,int xo, int yo)
                 printf("馬輸入錯誤請重新輸入喔喔喔喔喔!\n");
                 reenter_or_not = 1;
             }
+        }else{
+            printf("有輸入錯誤喔!\n");
+            reenter_or_not = 1;
         }
     } else if(*red_or_blue == -1){                //red
         if(board[xi][yi].name == CHESSBAD(香)) {
@@ -739,15 +854,19 @@ void MoveChess(int *red_or_blue,int xi, int yi,int xo, int yo)
                 printf("馬輸入錯誤請重新輸入喔喔喔喔喔!\n");
                 reenter_or_not = 1;
             }
+        }else{
+            printf("有輸入錯誤喔!\n");
+            reenter_or_not = 1;
         }
     }else{
-        printf("The coding guy is bad since he made some mistake\n");
+        printf("The coding guy is bad since he made some mistake which shouldn't happened\n");
     }
 
     printf("%d , %d , %d , %d, %s, %s, redorblue = %d\n", xi, yi, xo, yo, board[xi][yi].name, board[xo][yo].name, *red_or_blue);
     printf("%s, %s, validcheck = %d\n", red_catch[0].name, blue_catch[0].name, ValidCheck(2,xi, yi, xo, yo));
-    scanf("%d", &xi);
-
+    //scanf("%d", &xi);
+    system("pause");
+    
 }
 
 int ValidCheck(int chess_number,int xi, int yi,int xo, int yo)           //如果沒有違規就回傳1，是吃子就回傳2
@@ -1347,7 +1466,7 @@ board_save *CreateSavedBoard(board_save *list_of_board)
     
 
     list_of_board->right = tmp;      //原本的接到tmp
-    tmp->left =  list_of_board;      //左邊接到之前
+    tmp->left = list_of_board;      //左邊接到之前
     list_of_board = tmp;             //list_of_board 換到下一個
 
     return (list_of_board);
@@ -1413,6 +1532,515 @@ board_save *UpDateBoard(board_save *list_of_board, int *red_or_blue)
     return (list_of_board);
 
 }       
+
+//把linklist中的一個的棋盤存入new_game_file
+void SaveOneBoard(board_save *list_of_board, FILE * cfPtr)
+{
+    for(int i = 0; i < CATCH_SIZE;i++){
+        //fprintf(cfPtr,"%s\n", list_of_board->saved_red_catch[i].name);
+        //fprintf(cfPtr,"%s\n", list_of_board->saved_blue_catch[i].name);
+        fprintf(cfPtr,"%c\n", TurnToSymbol( list_of_board->saved_red_catch[i]));
+        fprintf(cfPtr,"%c\n", TurnToSymbol( list_of_board->saved_blue_catch[i]) );
+    }
+    
+    for(int i = 0; i < SIZE;i++){
+        for(int j = 0; j < SIZE;j++){
+            //fprintf(cfPtr,"%s\n", list_of_board->saved_board[i][j].name);
+            fprintf(cfPtr,"%c\n", TurnToSymbol( list_of_board->saved_board[i][j] ));
+            
+        }
+    }
+    fprintf(cfPtr,"%d\n", list_of_board->saved_red_or_blue);
+    
+
+}
+
+//存new_game_file中的一個棋盤(只存一個)
+void GetOneBoard(board_save *list_of_board, FILE * cfPtr)
+{
+    char name[50][20];          //抓出檔案的內容
+    //如果不把name換成
+    for(int i = 0; i < CATCH_SIZE;i++){
+        fscanf(cfPtr,"%s", name[i]);
+        
+        list_of_board->saved_red_catch[i].name = name[i];
+        printf("%s\n",list_of_board->saved_red_catch[i].name );
+        fscanf(cfPtr,"%s", name[25+i]);
+        
+        list_of_board->saved_blue_catch[i].name = name[25+i];
+        printf("%s\n",list_of_board->saved_blue_catch[i].name );
+        
+    }
+    
+    char name2[100][20];
+    for(int i = 0; i < SIZE;i++){
+        for(int j = 0; j < SIZE;j++){
+            fscanf(cfPtr,"%s", name2[i*10+j]);
+            
+            list_of_board->saved_board[i][j].name = name2[i*10+j];
+            printf("%s\n",name2[i*10+j]);
+            
+            
+        }
+    }
+    fscanf(cfPtr,"%d \n", &list_of_board->saved_red_or_blue);
+}
+
+//問要不要悔棋
+int ReadFileAsk()
+{
+    char input[3];
+    printf("想要讀檔嗎?[y/n]: ");
+    scanf(" %c", input);
+    if(input[0] == 'y'){    //回傳一表示要
+        return 1;
+    }else if( input[0] == 'n') {        //回傳0表示不要
+        return 0;
+    }else {
+        printf("讀舊檔案詢問輸入錯誤請重新輸入\n");
+        return ReadFileAsk();
+        
+    }
+
+}
+
+//從檔案讀取棋譜，要直接放到main裡面去做動，不然有bug
+//board_save *ReadOldFile(board_save *list_of_board, FILE * cfPtr, int *red_or_blue)
+// {
+//     char input[3];
+    
+//     if(ReadFileAsk() == 1){
+//         //開始把舊檔案下載
+//         board_save *tmp;
+//         tmp = (board_save*)malloc(sizeof(board_save));
+        
+        
+//         while(input[0] != 'p'){
+//             printf("輸入 ‘f’ 移動下一手，輸入 ‘b’ 退回上一手，輸入‘p’開始玩 : ");
+//             scanf(" %c", input);
+//             if(input[0] == 'f'){
+//                 // char name[50][20]; 
+//                 // char name2[100][20];
+//                 char ch1[30];
+//                 char ch2[30];
+//                 char ch3[100];
+//                 for(int i = 0; i < CATCH_SIZE;i++){
+//                     //fscanf(cfPtr,"%s", name[i]);
+                    
+//                     //list_of_board->saved_red_catch[i].name = name[i];
+//                     fscanf(cfPtr, "%c ", &ch1[i]);
+//                     red_catch[i].name = TurnToChar(ch1[i]);
+//                     fscanf(cfPtr,"%c ", &ch2[i]);
+//                     blue_catch[i].name = TurnToChar(ch2[i]);
+//                     //list_of_board->saved_blue_catch[i].name = name[25+i];
+                    
+                    
+//                 }
+                
+                
+//                 for(int i = 0; i < SIZE;i++){
+//                     for(int j = 0; j < SIZE;j++){
+//                         //fscanf(cfPtr,"%s", name2[i*10+j]);
+//                         //list_of_board->saved_board[i][j].name = name2[i*10+j];
+//                         fscanf(cfPtr,"%c ", &ch3[i*10 + j]);
+//                         board[i][j].name = TurnToChar( ch3[i*10+j]);
+//                     }
+//                 }
+//                 fscanf(cfPtr,"%d \n", &list_of_board->saved_red_or_blue);
+//                 // list_of_board = CreateSavedBoard(list_of_board);    //新增
+//                 // UpDateSavedBoard(list_of_board,list_of_board->saved_red_or_blue);
+//                 BoardPrint();
+//                 printf("red_or_blue = %d\n", *red_or_blue);
+//             }else if(input[0] == 'b'){
+//                 fseek(cfPtr, -118*15, SEEK_CUR);//跳到檔案下一個步驟
+//                 char name[50][20]; 
+//                 char name2[100][20];
+
+//                 for(int i = 0; i < CATCH_SIZE;i++){
+//                     fscanf(cfPtr,"%s", name[i]);
+                    
+                    
+                    
+//                     red_catch[i].name = name[i];
+//                     fscanf(cfPtr,"%s", name[25+i]);
+                    
+                    
+//                     blue_catch[i].name = name[25+i];
+                    
+//                 }
+                
+                
+//                 for(int i = 0; i < SIZE;i++){
+//                     for(int j = 0; j < SIZE;j++){
+//                         fscanf(cfPtr,"%s", name2[i*10+j]);
+                        
+//                         board[i][j].name = name2[i*10+j];
+//                     }
+//                 }
+//                 fscanf(cfPtr,"%d \n", &list_of_board->saved_red_or_blue);
+//                 BoardPrint();
+//                 printf("red_or_blue = %d", *red_or_blue);
+//             }else{
+//                 printf("輸入錯誤\n");
+//             }
+//         }
+//     }
+    
+//     return (list_of_board);
+// }
+
+//儲存檔案的轉換，把字母變成原本的字
+board_property TurnToChar(char chess)
+{
+    board_property tmp;
+    if(chess == 'o'){
+        tmp.name = CHESSGOOD(杏);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'h'){
+        tmp.name =  CHESSGOOD(圭);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'w'){
+        tmp.name =  CHESSGOOD(全);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'm'){
+        tmp.name =  CHESSGOOD(と);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'f'){
+        tmp.name =  CHESSGOOD(龍);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 't'){
+        tmp.name =  CHESSGOOD(馬);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'O'){
+        tmp.name =  CHESSBAD(杏);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'H'){
+        tmp.name =  CHESSBAD(圭);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'W'){
+        tmp.name =  CHESSBAD(全);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'M'){
+        tmp.name =  CHESSBAD(と);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'F'){
+        tmp.name =  CHESSBAD(龍);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'T'){
+        tmp.name =  CHESSBAD(馬);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'l'){
+        tmp.name =  CHESSGOOD(香);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'n'){
+        tmp.name =  CHESSGOOD(桂);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 's'){
+        tmp.name =  CHESSGOOD(銀);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'p'){
+        tmp.name =  CHESSGOOD(步);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'r'){
+        tmp.name =  CHESSGOOD(飛);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'b'){
+        tmp.name =  CHESSGOOD(角);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'L'){
+        tmp.name =  CHESSBAD(香);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'N'){
+        tmp.name =  CHESSBAD(桂);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'S'){
+        tmp.name =  CHESSBAD(銀);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'P'){
+        tmp.name =  CHESSBAD(步);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'R'){
+        tmp.name =  CHESSBAD(飛);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'B'){
+        tmp.name =  CHESSBAD(角);
+        tmp.color = -1;
+        return(tmp);
+     }else if(chess == 'K'){
+         tmp.name = CHESSBAD(王);
+         tmp.color = -1;
+         return(tmp);
+    }else if(chess == 'k'){
+        tmp.name =  CHESSGOOD(玉);
+        tmp.color = 1;
+        return(tmp);
+    }else if(chess == 'A'){
+        tmp.name =  CHESSKUO(空);
+        tmp.color = 0;
+        return(tmp);
+    }else if(chess == 'G'){
+        tmp.name =  CHESSBAD(金);
+        tmp.color = -1;
+        return(tmp);
+    }else if(chess == 'g'){
+        tmp.name =  CHESSGOOD(金);
+        tmp.color = 1;
+        return(tmp);
+    }else{                      //正常不會跑到這個else，是我讀取檔案錯誤才有可能
+        tmp.name =  CHESSBAD(哭);
+        tmp.color = -1;
+        return(tmp);
+    }
+
+
+    // if(chess == 'o'){
+    //     return(CHESSGOOD(杏));
+    // }else if(chess == 'h'){
+    //     return(CHESSGOOD(圭));
+    // }else if(chess == 'w'){
+    //     return(CHESSGOOD(全));
+    // }else if(chess == 'm'){
+    //     return(CHESSGOOD(と));
+    // }else if(chess == 'f'){
+    //     return(CHESSGOOD(龍));
+    // }else if(chess == 't'){
+    //     return(CHESSGOOD(馬));
+    // }else if(chess == 'O'){
+    //     return(CHESSBAD(杏));
+    // }else if(chess == 'H'){
+    //     return(CHESSBAD(圭));
+    // }else if(chess == 'W'){
+    //     return(CHESSBAD(全));
+    // }else if(chess == 'M'){
+    //     return(CHESSBAD(と));
+    // }else if(chess == 'F'){
+    //     return(CHESSBAD(龍));
+    // }else if(chess == 'T'){
+    //     return(CHESSBAD(馬));
+    // }else if(chess == 'l'){
+    //     return(CHESSGOOD(香));
+    // }else if(chess == 'n'){
+    //     return(CHESSGOOD(桂));
+    // }else if(chess == 's'){
+    //     return(CHESSGOOD(銀));
+    // }else if(chess == 'p'){
+    //     return(CHESSGOOD(步));
+    // }else if(chess == 'r'){
+    //     return(CHESSGOOD(飛));
+    // }else if(chess == 'b'){
+    //     return(CHESSGOOD(角));
+    // }else if(chess == 'L'){
+    //    return(CHESSBAD(香));
+    // }else if(chess == 'N'){
+    //     return(CHESSBAD(桂));
+    // }else if(chess == 'S'){
+    //     return(CHESSBAD(銀));
+    // }else if(chess == 'P'){
+    //     return(CHESSBAD(步));
+    // }else if(chess == 'R'){
+    //     return(CHESSBAD(飛));
+    // }else if(chess == 'B'){
+    //     return(CHESSBAD(角));
+    // }else if(chess == 'K'){
+    //     return(CHESSBAD(王));
+    // }else if(chess == 'k'){
+    //     return(CHESSGOOD(玉));
+    // }else if(chess == 'A'){
+    //     return( CHESSKUO(空));
+    // }else if(chess == 'G'){
+    //     return(CHESSBAD(金));
+    // }else if(chess == 'g'){
+    //     return(CHESSGOOD(金));
+    // }else{
+    //     return CHESSBAD(哭); 
+    // }
+
+
+}
+
+//儲存檔案的轉換，藍色小寫紅色大寫
+char TurnToSymbol(board_property chess)
+{
+
+    if(chess.name == CHESSGOOD(杏)){
+        return('o');
+    }else if(chess.name == CHESSGOOD(圭)){
+        return('h');
+    }else if(chess.name == CHESSGOOD(全)){
+        return('w');
+    }else if(chess.name == CHESSGOOD(と)){
+        return('m');
+    }else if(chess.name == CHESSGOOD(龍)){
+        return('f');
+    }else if(chess.name == CHESSGOOD(馬)){
+        return('t');
+    }else if(chess.name == CHESSBAD(杏)){
+        return('O');
+    }else if(chess.name == CHESSBAD(圭)){
+        return('H');
+    }else if(chess.name == CHESSBAD(全)){
+        return('W');
+    }else if(chess.name == CHESSBAD(と)){
+        return('M');
+    }else if(chess.name == CHESSBAD(龍)){
+        return('F');
+    }else if(chess.name == CHESSBAD(馬)){
+        return('T');
+    }else if(chess.name == CHESSGOOD(香)){
+        return('l');
+    }else if(chess.name == CHESSGOOD(桂)){
+        return('n');
+    }else if(chess.name == CHESSGOOD(銀)){
+        return('s');
+    }else if(chess.name == CHESSGOOD(步)){
+        return('p');
+    }else if(chess.name == CHESSGOOD(飛)){
+        return('r');
+    }else if(chess.name == CHESSGOOD(角)){
+        return('b');
+    }else if(chess.name == CHESSBAD(香)){
+       return('L');
+    }else if(chess.name == CHESSBAD(桂)){
+        return('N');
+    }else if(chess.name == CHESSBAD(銀)){
+        return('S');
+    }else if(chess.name == CHESSBAD(步)){
+        return('P');
+    }else if(chess.name == CHESSBAD(飛)){
+        return('R');
+    }else if(chess.name == CHESSBAD(角)){
+        return('B');
+    }else if(chess.name ==CHESSBAD(王)){
+        return('K');
+    }else if(chess.name == CHESSGOOD(玉)){
+        return('k');
+    }else if(chess.name == CHESSKUO(空)){
+        return('A');
+    }else if(chess.name == CHESSBAD(金)){
+        return('G');
+    }else if(chess.name == CHESSGOOD(金)){
+        return('g');
+    }
+
+
+}
+
+
+//開始從頭讀檔案
+// board_save *BACKUPeadOldFile(board_save *list_of_board, FILE * cfPtr, int *red_or_blue)
+// {
+//     char input[3];
+    
+//     if(ReadFileAsk() == 1){
+//         //開始把舊檔案下載
+//         board_save *tmp;
+//         tmp = (board_save*)malloc(sizeof(board_save));
+//         tmp = list_of_board;
+//         while( !feof( cfPtr )){         //不停地下載直到跑完舊檔案
+//             char name[50][20]; 
+//             char name2[100][20];
+
+//             for(int i = 0; i < CATCH_SIZE;i++){
+//                 fscanf(cfPtr,"%s", name[i]);
+                
+//                 list_of_board->saved_red_catch[i].name = name[i];
+                
+//                 //red_catch[i].name = name[i];
+//                 fscanf(cfPtr,"%s", name[25+i]);
+                
+//                 list_of_board->saved_blue_catch[i].name = name[25+i];
+//                 //blue_catch[i].name = name[25+i];
+                
+//             }
+            
+            
+//             for(int i = 0; i < SIZE;i++){
+//                 for(int j = 0; j < SIZE;j++){
+//                     fscanf(cfPtr,"%s", name2[i*10+j]);
+//                     list_of_board->saved_board[i][j].name = name2[i*10+j];
+//                     //board[i][j].name = name2[i*10+j];
+//                 }
+//             }
+//             fscanf(cfPtr,"%d \n", &list_of_board->saved_red_or_blue);
+//             list_of_board = CreateSavedBoard(list_of_board);    //新增
+//             UpDateSavedBoard(list_of_board,list_of_board->saved_red_or_blue);                    //同步更新棋盤到list
+//         }
+//         list_of_board = tmp;    //list_of_board 回到頭
+
+//         while(input[0] != 'p'){
+//             printf("輸入 ‘f’ 移動下一手，輸入 ‘b’ 退回上一手，輸入‘p’開始玩 : ");
+//             scanf(" %c", input);
+//             if(input[0] == 'f'){
+//                 if(list_of_board->right != NULL){    //如果還可以下一手才讀取下一手
+//                     list_of_board = list_of_board->right;       //跑到下一個
+//                     //讀取數值
+//                     for(int i = 0; i < CATCH_SIZE;i++){
+//                         red_catch[i] = list_of_board->saved_red_catch[i];
+//                         blue_catch[i] = list_of_board->saved_blue_catch[i];
+//                     }
+                    
+//                     for(int i = 0; i < SIZE;i++){
+//                         for(int j = 0; j < SIZE;j++){
+//                             board[i][j] = list_of_board->saved_board[i][j];
+//                         }
+//                     }
+//                     *red_or_blue = list_of_board->saved_red_or_blue;
+//                     printf("洪蘭: %d", *red_or_blue);
+//                 }else{
+//                     printf("沒有下一手了\n");
+//                 }
+//                 BoardPrint();
+                
+//             }else if(input[0] == 'b'){
+//                 if(list_of_board->left != NULL){    //如果還可以上一手才讀取上一手
+//                     list_of_board = list_of_board->left;       //跑到上一個
+//                     //讀取數值
+//                     for(int i = 0; i < CATCH_SIZE;i++){
+//                         red_catch[i] = list_of_board->saved_red_catch[i];
+//                         blue_catch[i] = list_of_board->saved_blue_catch[i];
+//                     }
+                    
+//                     for(int i = 0; i < SIZE;i++){
+//                         for(int j = 0; j < SIZE;j++){
+//                             board[i][j] = list_of_board->saved_board[i][j];
+//                         }
+//                     }
+//                     *red_or_blue = list_of_board->saved_red_or_blue;
+//                 }else{
+//                     printf("不能再上一手了\n");
+//                 }
+//                 BoardPrint();
+//             }else{
+//                 printf("輸入錯誤\n");
+//             }
+//         }
+//     }
+    
+//     return (list_of_board);
+// }
 
 //===============以下拋棄因為直接存棋盤比儲存動作快===============
 
