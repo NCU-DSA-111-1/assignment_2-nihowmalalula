@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <ev.h>
+
+
 
 
 #define SIZE 9              //鄭烈的大小， 可隨時更改
@@ -57,6 +60,9 @@ char chess_next_row[10];
 char chess_next_column[10];
 int win_condition = 0;              //判定勝負的變數 0是對局進行 1是藍贏了 -1 是紅贏了
 int reenter_or_not = 0;             //判定此次是否為無效動作，如果是無效(輸入不和規則)就是1，反之正確就是0。
+char *comunicator = " ";              //用來存跟使用者對話的一句話
+int red_or_blue = 0;           //-1代表換紅方1代表換藍方
+
 //data_save *list;       不使用這種方法儲存了。累死我也
 
 
@@ -79,6 +85,7 @@ int ReviveAsk();
 int ReviveCheck(int position, int xo, int yo);
 void ReviveMove(int *red_or_blue,int xi, int yi,int xo, int yo);
 void LevelUp(int x, int y);
+void Timefunc();
 
 board_save *CreateSavedBoard(board_save *list_of_board);
 void UpDateSavedBoard(board_save *list, int red_or_blue);
@@ -116,32 +123,83 @@ struct data_save{        //利用儲存棋盤的變動來儲存檔案
 typedef struct data_save data_save;
 data_save *Add(data_save *list, int xi, int yi, int xo, int yo, int level_up, int revive, int red_or_blue, int eat, int position, int eat_level_down);
 int PreviousMove(data_save *list);
+//資料儲存結束
 
+
+//時間libev的設定
+ev_timer time_watcher;
+ev_io io_watcher;
+time_t t_blue_benchmark, t_red_benchmark, t_red, t_blue, t_tmp;
+int sequence_counter = 0;
+static void io_cb(EV_P_ ev_io *w, int revents)
+{
+
+    ev_io_stop(EV_A_ w);
+    ev_timer_stop(loop, &time_watcher);
+    ev_break(loop, EVBREAK_ALL);
+    
+
+}
+
+static void timer_cb(EV_P_ ev_timer *w, int revents)
+{
+//   t_red = time(NULL);
+//   t_blue = time(NULL);
+    if(red_or_blue == 1){       //是換藍色下棋就計時
+        t_blue++;
+    }else if(red_or_blue == -1){
+        t_red++;
+    }
+    
+    //system("clear");
+    
+    //printf("紅方所用時間 : %ld\t藍方所用時間 : %ld\n",t_red - t_benchmark, t_blue - t_benchmark);//此時間點開始過了多久
+    BoardPrint();
+    fflush(stdout);
+    
+}
+
+void Timefunc()
+{
+    struct ev_loop *loop = EV_DEFAULT;
+    ev_io_init(&io_watcher,io_cb,0,EV_READ);
+    ev_io_start(loop, &io_watcher);
+    ev_timer_init(&time_watcher,timer_cb,0,1);
+    ev_timer_start(loop, &time_watcher);
+    // t_red_benchmark = time(NULL);
+    // t_blue_benchmark = time(NULL);
+    // t_red = 0;
+    // t_blue = 0;
+    
+    ev_run(loop, 0);
+}
 
 
 
 int main(void)
 {
-    //檔案處理的部分
     
-
+    //檔案處理的部分
     // FILE *cfPtr = fopen("new_game_file.txt","a+");
-    FILE *cfPtr = fopen("old_game_file.txt","r+");
-
+    FILE *cfPtr = fopen("old_game_file.txt","r+");//舊檔案的指標
+    FILE *newfPtr = fopen("new_game_file.txt","r+");//新檔案的指標
+    
     if((cfPtr ) == NULL)
     {
         printf("檔案開不了阿哭哭我ˋ真的累了\n");
     }
-    int red_or_blue = 1;           //-1代表換紅方1代表換藍方
+    red_or_blue  = 1;           //-1代表換紅方1代表換藍方
     int initial_or_not = 1;         //判斷是否為一開始
     
-    
+    t_red_benchmark = time(NULL);
+    t_blue_benchmark = time(NULL);
+    t_red = 0;
+    t_blue = 0;
+
+
     BoardReset();
     
     //LoadingLine();
-    board_save *list_of_old_board;       //儲存棋盤的list       記得不需要list_of_board = NULL; !!
-    list_of_old_board = (board_save*)malloc(sizeof(board_save));        //初始化
-    //ReadOldFile(list_of_old_board, cfPtr, &red_or_blue);    //剛開始來問讀檔案
     
 
     board_save *list_of_board;       //儲存棋盤的list       記得不需要list_of_board = NULL; !!
@@ -185,7 +243,7 @@ int main(void)
                     list_of_board = CreateSavedBoard(list_of_board);    //新增
                     UpDateSavedBoard(list_of_board,list_of_board->saved_red_or_blue);
                     BoardPrint();
-                    printf("red_or_blue = %d", red_or_blue);
+                    //printf("red_or_blue = %d", red_or_blue);
                 }
 
                 
@@ -201,7 +259,7 @@ int main(void)
                 
 
                 
-                printf("red_or_blue = %d", red_or_blue);
+                // printf("red_or_blue = %d", red_or_blue);
             }else{
                 printf("輸入錯誤\n");
             }
@@ -210,14 +268,14 @@ int main(void)
     UpDateSavedBoard(list_of_board, red_or_blue);       //先儲存一個剛開始的棋盤
     
     
-    // SaveOneBoard(list_of_board, cfPtr);
+    SaveOneBoard(list_of_board, newfPtr);
     
     //list_of_board->left = NULL;
     //Game start!!
     while(win_condition == 0){
         BoardPrint();
         
-        (red_or_blue == 1) ? printf("現在是藍方喔~\n") : printf("現在是紅方喔~\n");
+        
         
 
 
@@ -288,7 +346,7 @@ int main(void)
         if(reenter_or_not == 0){
             list_of_board = CreateSavedBoard(list_of_board);    //製造新的一格儲存棋盤的linklist
             UpDateSavedBoard(list_of_board, red_or_blue * (-1));       //換下一人就儲存棋盤(這裡red_or_blue已經改了，所以要乘-1才是這次的值)
-            // SaveOneBoard(list_of_board, cfPtr);                           //更新完棋盤就存檔
+            SaveOneBoard(list_of_board, newfPtr);                           //更新完棋盤就存檔
         }else{
             reenter_or_not = 0;     //判斷完把reenter_or_not歸零重新作為判斷依據
         }
@@ -308,7 +366,7 @@ int main(void)
     //印出勝利圖片
     NicePic();
 
-
+    fclose( newfPtr );
     fclose( cfPtr );
     return 0;
 }
@@ -407,10 +465,11 @@ void BoardReset()
 
 void BoardPrint()
 {
-    //system("clear");
+    system("clear");
 
 
-    
+    printf("紅方所用時間 : %ld\n藍方所用時間 : %ld\n",t_red , t_blue );//此時間點開始過了多久
+
 
     printf("⌓‿⌓ と⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓ ⌓‿⌓\n");
     int i, j =0;
@@ -513,6 +572,18 @@ void BoardPrint()
         
     }
     printf("\n");
+    
+    
+    // for(i = 0;*comunicator[i] == '\0';i++){
+    //     printf("%s\n", *comunicator[1]);
+    // }
+    if(red_or_blue == 1){
+        printf("現在是藍方喔~\n");
+    }else if(red_or_blue == -1){
+        printf("現在是紅方喔~\n");
+    }
+    puts(comunicator);
+
 
 }
 
@@ -521,17 +592,32 @@ void BoardPrint()
 void ReceiveInput()         
 {
     
-    
-    printf("請輸入棋子所在位置行(段) : ");
+    char str1[] = "請輸入棋子所在位置行(段) : "; 
+    comunicator = str1;
+    //printf("請輸入棋子所在位置行(段) : ");
+    Timefunc();
     scanf("%s", chess_current_row);
-    
-    printf("請輸入棋子所在位置列(筋) : ");
+
+    char str2[] = "請輸入棋子所在位置列(筋) : "; 
+    comunicator = str2;
+    Timefunc();
+    //printf("請輸入棋子所在位置列(筋) : ");
     scanf("%s", chess_current_column);   
 
-    printf("請輸入棋子所去位置行(段) : ");
+
+    char str3[] = "請輸入棋子所去位置行(段) : "; 
+    comunicator = str3;
+    Timefunc();
+    // printf("請輸入棋子所去位置行(段) : ");
+    
     scanf("%s", chess_next_row); 
 
-    printf("請輸入棋子所去位置列(筋) : ");
+
+    char str4[] = "請輸入棋子所去位置列(筋) : "; 
+     comunicator = str4;
+    Timefunc();
+    // printf("請輸入棋子所去位置列(筋) : ");
+    
     scanf("%s", chess_next_column);   
 
 
@@ -862,10 +948,12 @@ void MoveChess(int *red_or_blue,int xi, int yi,int xo, int yo)
         printf("The coding guy is bad since he made some mistake which shouldn't happened\n");
     }
 
-    printf("%d , %d , %d , %d, %s, %s, redorblue = %d\n", xi, yi, xo, yo, board[xi][yi].name, board[xo][yo].name, *red_or_blue);
-    printf("%s, %s, validcheck = %d\n", red_catch[0].name, blue_catch[0].name, ValidCheck(2,xi, yi, xo, yo));
-    //scanf("%d", &xi);
-    system("pause");
+
+    //者李底下四行是測試參數用的
+    // printf("%d , %d , %d , %d, %s, %s, redorblue = %d\n", xi, yi, xo, yo, board[xi][yi].name, board[xo][yo].name, *red_or_blue);
+    // printf("%s, %s, validcheck = %d\n", red_catch[0].name, blue_catch[0].name, ValidCheck(2,xi, yi, xo, yo));
+    // //scanf("%d", &xi);
+    // system("pause");
     
 }
 
@@ -1196,7 +1284,10 @@ void NicePic()          //印出圖片
 int LevelUpAsk()
 {
     char input[3];
-    printf("泥要升級泥的棋子嗎?[y/n]: ");
+    char str1[] = "泥要升級泥的棋子嗎?[y/n]: "; 
+    comunicator = str1;
+    Timefunc();
+    //printf("泥要升級泥的棋子嗎?[y/n]: ");
     scanf(" %c", input);
     if(input[0] == 'y'){
         return 1;
@@ -1338,7 +1429,10 @@ void LevelDownColorNoChange(int x, int y)
 int ReviveAsk()
 {
     char input[3];
-    printf("想要拿取吃過的棋子嗎?[y/n]: ");
+    char str1[] = "泥要升級泥的棋子嗎?[y/n]: "; 
+    comunicator = str1;
+    Timefunc();
+    //printf("想要拿取吃過的棋子嗎?[y/n]: ");
     scanf(" %c", input);
     if(input[0] == 'y'){    //回傳一表示要
         return 1;
@@ -1495,7 +1589,10 @@ void UpDateSavedBoard(board_save *list, int red_or_blue)
 int RegretAsk()
 {
     char input[3];
-    printf("想要回到上一步嗎?[y/n]: ");
+    char str2[] = "想要回到上一步嗎?[y/n]: "; 
+    comunicator = str2;
+    Timefunc();
+    //printf("想要回到上一步嗎?[y/n]: ");
     scanf(" %c", input);
     if(input[0] == 'y'){    //回傳一表示要
         return 1;
@@ -1590,7 +1687,8 @@ void GetOneBoard(board_save *list_of_board, FILE * cfPtr)
 int ReadFileAsk()
 {
     char input[3];
-    printf("想要讀檔嗎?[y/n]: ");
+    
+     printf("想要讀取舊的棋譜嗎?[y/n]: ");
     scanf(" %c", input);
     if(input[0] == 'y'){    //回傳一表示要
         return 1;
